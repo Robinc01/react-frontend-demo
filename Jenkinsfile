@@ -1,13 +1,37 @@
 pipeline {
     agent any
 
+    // --- NEW: Add this options block for branch and tag discovery/build strategies ---
+    options {
+        // This configures how Jenkins discovers branches and tags, and what build strategies to apply.
+        // It's essential for enabling automatic builds on new tags.
+        git.branchSources {
+            git.add(new GitBranchSource(
+                // IMPORTANT: Replace with your actual GitHub repository HTTPS URL
+                remote: 'https://github.com/Robinc01/react-frontend-demo.git',
+                
+                // Include all branches and tags for discovery
+                includes: '*',
+                // Define traits for discovery and build strategies
+                traits: [
+                    // This trait enables the automatic build strategy for new tags
+                    git.build.strategy.impl.TagStrategyImpl(),
+                    // This trait ensures tags are discovered by the multibranch pipeline
+                    git.checkout.impl.TagDiscoveryTrait()
+                ]
+            ))
+        }
+    }
+    // --- END NEW BLOCK ---
+
     environment {
-                PATH = "/var/lib/jenkins/.nvm/versions/node/v22.2.0/bin:$PATH"
+        PATH = "/var/lib/jenkins/.nvm/versions/node/v22.2.0/bin:$PATH"
     }
 
     stages {
         stage('Checkout') {
             steps {
+                // 'checkout scm' will use the SCM configuration defined in the branchSources block
                 checkout scm
             }
         }
@@ -15,7 +39,8 @@ pipeline {
         stage('Detect Release Tag & Env') {
             steps {
                 script {
-                    // Get tag name manually
+                    // Get tag name manually. env.TAG_NAME is also available for tag builds.
+                    // Using git describe --tags --exact-match is robust for annotated tags.
                     env.GIT_TAG_NAME = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
                     def tag = env.GIT_TAG_NAME
